@@ -1,5 +1,3 @@
-// Loaded before anything reads process.env (server.ts imports this first).
-// Prisma 7 no longer loads .env itself; a missing file is fine when the env is already set.
 try {
   process.loadEnvFile();
 } catch {}
@@ -14,8 +12,6 @@ export const env = {
   /** The dashboard: CORS allowlist and where Google sign-in lands. */
   frontendUrl: trimSlash(process.env.FRONTEND_URL ?? 'http://localhost:3000'),
   productName: process.env.PRODUCT_NAME ?? '[Product name]', // placeholder, configurable (AGENTS.md)
-  /** Fake ABA rail + `/_dev/*` routes; never true in production (hard rule 8). */
-  devGateway: process.env.ENABLE_DEV_GATEWAY === 'true',
 };
 
 export const isLocalhost = () => /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(env.publicOrigin);

@@ -12,7 +12,7 @@ npm run dev                 # http://localhost:3001
 ```
 
 `SESSION_SECRET` is required: the server refuses to start without one (`openssl rand -base64 48`).
-Set `ENABLE_DEV_GATEWAY=true` to use the fake ABA rail and the `/_dev/*` routes instead of real ABA calls.
+Every payment goes to the real ABA PayWay endpoints, so a store needs a working payment link.
 
 ## Scripts
 
@@ -30,9 +30,8 @@ src/
   server.ts       listen, signals, start/stop the jobs
   app.ts          the express app: middleware + routes (no listen, so tests import it)
   container.ts    every service built once, in dependency order
-  config/env.ts   everything read from the environment
   middleware/     auth (Bearer key or session cookie) · cors · error · validate (zod → 422)
-  lib/            errors · ids · money · log · zod · prisma (Db)
+  lib/            env (everything read from the environment) · errors · ids · money · log · zod · prisma (Db)
   modules/<f>/    <f>.controller.ts (HTTP) · <f>.service.ts (logic) · <f>.schema.ts (zod) · <f>.view.ts (JSON)
   jobs/           webhook-sender · detection-sweeper (Postgres polling loops, no Redis)
 ```

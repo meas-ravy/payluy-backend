@@ -1,5 +1,5 @@
 import express, { type Express } from 'express';
-import { env } from './config/env';
+import { env } from './lib/env';
 import type { Container } from './container';
 import { accountAuth, sessionAuth } from './middleware/auth';
 import { cors } from './middleware/cors';
@@ -8,7 +8,6 @@ import { accountsController } from './modules/accounts/accounts.controller';
 import { authController } from './modules/auth/auth.controller';
 import { billingController } from './modules/billing/billing.controller';
 import { checkoutController } from './modules/checkout/checkout.controller';
-import { devController } from './modules/dev/dev.controller';
 import { keysController } from './modules/keys/keys.controller';
 import { khqrController } from './modules/khqr/khqr.controller';
 import { paymentsController } from './modules/payments/payments.controller';
@@ -37,7 +36,6 @@ export function buildApp(c: Container): Express {
   app.use('/v1/keys', keysController(c.keys, auth));
   app.use('/v1/webhooks', webhooksController(c.webhooks, auth));
   app.use('/v1/reports', reportsController(c.reports, auth));
-  if (c.dev) app.use('/_dev', devController(c.dev, auth)); // ENABLE_DEV_GATEWAY only (hard rule 8)
 
   app.use(notFoundHandler);
   app.use(errorHandler);

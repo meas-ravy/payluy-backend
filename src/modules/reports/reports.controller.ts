@@ -13,14 +13,14 @@ export function reportsController(reports: ReportsService, auth: RequestHandler)
   const r = Router();
   r.use(auth);
 
-  r.get('/payments.json', async (req, res) => {
+  r.get('/v1/payments.json', async (req, res) => {
     const q = query(reportQuerySchema, req);
     const { rows, total } = await reports.page(currentAccount(req), q);
     res.json({ data: rows.map(toReportRow), page: q.page, per_page: q.per_page, total });
   });
 
   /** Streamed, no paging. Errors before the first byte are normal JSON errors (plan gate, invalid_date…). */
-  r.get('/payments.csv', async (req, res) => {
+  r.get('/v1/payments.csv', async (req, res) => {
     const q = query(reportQuerySchema, req);
     const where = await reports.prepareCsv(currentAccount(req), q);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');

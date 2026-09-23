@@ -1,6 +1,6 @@
-import './config/env'; // must stay the first import: loads .env
+import './lib/env'; // must stay the first import: loads .env
 import { buildApp } from './app';
-import { env } from './config/env';
+import { env } from './lib/env';
 import { buildContainer } from './container';
 import { closeDb, connectDb } from './lib/prisma';
 import { log } from './lib/log';

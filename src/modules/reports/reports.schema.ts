@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { intQuery } from '../../lib/zod';
 import { PAYMENT_STATUSES } from '../payments/payments.schema';
 
-/** Query of `GET /v1/reports/payments.json|csv` (docs/api.md § Reports). */
+
 export const reportQuerySchema = z.object({
   // format checked by the service: a bad date is `400 invalid_date`, not 422 (docs/api.md)
   from: z.string().optional(), // YYYY-MM-DD, inclusive, UTC
