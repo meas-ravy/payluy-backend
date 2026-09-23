@@ -20,6 +20,7 @@
     "strictPropertyInitialization": false
   },
   "include": [
+    "api/**/*.ts",
     "src/**/*.ts",
     "prisma/**/*.ts"
   ]
