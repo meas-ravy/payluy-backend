@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { CookieOptions, Request } from 'express';
 import type { accounts } from '../../generated/prisma/client';
+import { isCrossSite, isLocalhost } from '../../lib/env';
 import type { Db } from '../../lib/prisma';
 
 export const SESSION_COOKIE = 'session';
@@ -48,7 +49,15 @@ export function createSessionService(prisma: Db) {
   }
 
   function cookieOptions(maxAgeMs = TTL_SEC * 1000): CookieOptions {
-    return { httpOnly: true, sameSite: 'lax', secure: !isLocalhost(), path: '/', maxAge: maxAgeMs };
+    // cross-site (dashboard on another host): `None` + `Secure`, or the browser never sends it back
+    const cross = isCrossSite();
+    return {
+      httpOnly: true,
+      sameSite: cross ? 'none' : 'lax',
+      secure: cross || !isLocalhost(),
+      path: '/',
+      maxAge: maxAgeMs,
+    };
   }
 
   function hmac(data: string) {
@@ -65,10 +74,6 @@ export function readCookie(req: Request, name: string): string | undefined {
   }
   return undefined;
 }
-
-/** `Secure` is off only when the public origin is localhost (docs/api.md § Auth). */
-const isLocalhost = () =>
-  /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test((process.env.PUBLIC_ORIGIN ?? 'http://localhost:3001').replace(/\/+$/, ''));
 
 function b64(obj: object) {
   return Buffer.from(JSON.stringify(obj)).toString('base64url');

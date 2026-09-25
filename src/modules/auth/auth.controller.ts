@@ -1,12 +1,13 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { Router } from 'express';
 import { badRequest } from '../../lib/errors';
+import { env } from '../../lib/env';
 import { AuthService } from './auth.service';
 import { SESSION_COOKIE, SessionService, readCookie } from './session.service';
 
 const STATE_COOKIE = 'oauth_state';
 const STATE_PATH = '/auth/google';
-const dashboardUrl = () => `${(process.env.FRONTEND_URL ?? 'http://localhost:3000').replace(/\/+$/, '')}/dashboard`;
+const dashboardUrl = () => `${env.frontendUrl}/dashboard`;
 
 /** docs/api.md § Auth (browser). HTTP only. */
 export function authController(auth: AuthService, sessions: SessionService): Router {

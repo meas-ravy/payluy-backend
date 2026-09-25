@@ -4,7 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { keyPrefix, newApiKey, sha256 } from '../src/lib/ids';
 
-const EMAIL = process.env.SEED_EMAIL ?? 'dev@example.com';
+const EMAIL = 'dev@example.com';
 
 // AGENTS.md "Plans". ponytail: monthly fees aren't in the docs, left at 0
 const PLANS = [

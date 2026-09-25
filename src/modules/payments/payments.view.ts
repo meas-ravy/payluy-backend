@@ -1,8 +1,9 @@
 import type { payments } from '../../generated/prisma/client';
 import { formatCents } from '../../lib/money';
+import { env } from '../../lib/env';
 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
-const origin = () => (process.env.PUBLIC_ORIGIN ?? 'http://localhost:3001').replace(/\/+$/, '');
+const origin = () => env.publicOrigin;
 
 /** Fields every payment view shares. `approved_at` = when it was paid. */
 function base(p: payments) {

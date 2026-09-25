@@ -1,6 +1,7 @@
 import type { accounts } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { Db } from '../../lib/prisma';
+import { env } from '../../lib/env';
 import { unauthorized, unavailable } from '../../lib/errors';
 
 const GOOGLE_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -101,4 +102,4 @@ function config() {
   return { clientId, clientSecret };
 }
 
-const redirectUri = () => `${(process.env.PUBLIC_ORIGIN ?? 'http://localhost:3001').replace(/\/+$/, '')}/auth/google/callback`;
+const redirectUri = () => `${env.publicOrigin}/auth/google/callback`;
