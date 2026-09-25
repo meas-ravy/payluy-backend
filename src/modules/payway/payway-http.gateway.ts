@@ -86,10 +86,10 @@ export class PaywayHttpGateway extends PaywayGateway {
     const res = await fetch(rawLink, { redirect: 'follow', signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!res.ok) throw new Error(`link_page_http_${res.status}`);
     const html = await res.text();
-    const abaData = ABA_DATA.exec(html)?.[1];
+    const raw = ABA_DATA.exec(html)?.[1];
     const requestTime = REQUEST_TIME.exec(html)?.[1];
-    if (!abaData || !requestTime) throw new Error('aba_data_not_found');
-    return { abaData, requestTime };
+    if (!raw || !requestTime) throw new Error('aba_data_not_found');
+    return { abaData: unescapeJs(raw), requestTime };
   }
 
   private async postJson(url: string, body: Json, headers: Record<string, string>, what: 'mint' | 'status'): Promise<Json> {
@@ -110,6 +110,18 @@ export class PaywayHttpGateway extends PaywayGateway {
     } catch {
       throw new Error(`${what}_bad_json`);
     }
+  }
+}
+
+/**
+ * aba_data sits in the page as a JS string literal (`/` written as `/`); the browser sends the
+ * decoded value, and ABA answers 403 "Invalid Data" to the raw one.
+ */
+export function unescapeJs(s: string): string {
+  try {
+    return JSON.parse(`"${s}"`) as string;
+  } catch {
+    return s; // not a valid JSON escape sequence: send as is
   }
 }
 
