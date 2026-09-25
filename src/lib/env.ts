@@ -18,8 +18,6 @@ export const env = {
   /** The dashboard: CORS allowlist and where Google sign-in lands. */
   frontendUrl: trimSlash(process.env.FRONTEND_URL || 'http://localhost:3000'),
   productName: process.env.PRODUCT_NAME || '[Product name]', // placeholder, configurable (AGENTS.md)
-  /** Set it to let a scheduler (Vercel Cron…) drive the jobs: GET /internal/tick with this bearer. */
-  cronSecret: process.env.CRON_SECRET,
 };
 
 export const isLocalhost = () => /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(env.publicOrigin);

@@ -4,7 +4,6 @@ import type { Container } from './container';
 import { accountAuth, sessionAuth } from './middleware/auth';
 import { cors } from './middleware/cors';
 import { errorHandler, notFoundHandler } from './middleware/error';
-import { jobsController } from './jobs/jobs.controller';
 import { accountsController } from './modules/accounts/accounts.controller';
 import { authController } from './modules/auth/auth.controller';
 import { billingController } from './modules/billing/billing.controller';
@@ -37,9 +36,6 @@ export function buildApp(c: Container): Express {
   app.use('/v1/keys', keysController(c.keys, auth));
   app.use('/v1/webhooks', webhooksController(c.webhooks, auth));
   app.use('/v1/reports', reportsController(c.reports, auth));
-
-  // serverless hosts can't run the 2 s loops: let a scheduler drive them instead (CRON_SECRET)
-  if (env.cronSecret) app.use('/internal', jobsController(c.jobs));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

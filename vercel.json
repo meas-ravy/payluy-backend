@@ -5,11 +5,5 @@
       "source": "/(.*)",
       "destination": "/api"
     }
-  ],
-  "crons": [
-    {
-      "path": "/internal/tick",
-      "schedule": "* * * * *"
-    }
   ]
 }
