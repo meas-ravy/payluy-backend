@@ -50,7 +50,7 @@ That one line is the whole controller: validate → call the service → shape t
 never touch Prisma.
 
 `body()` runs [`parse`](../backend/src/middleware/validate.ts#L17), which on failure throws
-`422 { detail: [{loc, msg, input}] }`. `createStoreSchema`
+`422 { error: "validation_error", message, detail: [{location, message, input}] }`. `createStoreSchema`
 ([stores.schema.ts:31](../backend/src/modules/stores/stores.schema.ts#L31)) is a **strictObject**, so
 an unknown field is a `422 unknown_field`, not silently ignored.
 
@@ -99,7 +99,9 @@ the page by
 [`PaywayHttpGateway.verifyLink`](../backend/src/modules/payway/payway-http.gateway.ts#L24), which
 delegates to [`readLinkPage`](../backend/src/modules/payway/payway-http.gateway.ts#L85): 10 s
 timeout, follow redirects, and scrape `aba_data` + `request_time` out of the HTML. Missing either →
-`aba_data_not_found` → `verifyLink` returns false → `400 invalid_payment_link`.
+`aba_data_not_found` → `verifyLink` returns null → `400 invalid_payment_link`. It also reads the
+link's `currency` from the same page: not found → `400 invalid_payment_link`; not `USD` →
+`400 payment_link_currency_not_supported` ("Only USD payment links are supported (this link is KHR).").
 
 This is **hard rule 10**: a link is never stored as verified without having been fetched. `verified_at`
 is only set here, on the object the transaction is about to write:
@@ -155,7 +157,7 @@ dropped, and `link` is nested (or `null`). The controller answers `201`.
 
 Anything thrown along the way — from zod, `badRequest`, `forbidden`, Prisma — lands in the global
 [`errorHandler`](../backend/src/middleware/error.ts#L8), which is the only place that writes
-`{ detail: … }`.
+`{ error, message }`.
 
 ## What exists afterwards
 
@@ -191,11 +193,12 @@ guarded `updateMany({ where: { id, status: 'draft' } })` (hard rule 3), so attac
 | --- | --- | --- |
 | No/invalid key, closed account | `accountAuth` | `401 unauthorized` |
 | Account suspended | `checkStatus` | `403 account_suspended` |
-| Missing `name`, bad email, unknown field | `createStoreSchema` | `422 [{loc,msg,input}]` |
+| Missing `name`, bad email, unknown field | `createStoreSchema` | `422 validation_error` + `detail: [{location,message,input}]` |
 | Branding without the entitlement | `assertBranding` | `403 whitelabel_not_enabled` |
 | Plan store limit (currently never) | `assertStoreLimit` | `400 store_limit_reached` |
 | Not a PayWay URL | `PAYWAY_LINK` | `400 invalid_payment_link` |
 | Page missing `aba_data`, ABA down, timeout | `readLinkPage` | `400 invalid_payment_link` |
+| Link currency is not USD (e.g. KHR) | `stores.service` `verifyLink` | `400 payment_link_currency_not_supported` |
 | `external_id` already used in this account | `mapExternalIdTaken` | `409 external_id_taken` |
 
 Note the third and fourth rows collapse to the same code on purpose: from the caller's side "this

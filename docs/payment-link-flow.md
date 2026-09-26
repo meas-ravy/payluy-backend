@@ -116,7 +116,7 @@ it in place and old payments keep pointing at the same row.
    (hard rule 6).
 
 The POS gets back `qr_string` (render it yourself) and `checkout_url` (our hosted `/pay/:id` page,
-which serves `qr.svg` via the `khqr/` renderer).
+which serves the KHQR card `qr.svg`, drawn by `khqr.service.ts`).
 
 So: **one payment link → many QR codes**, one per sale, each with its own amount and its own ABA
 session. The link is the merchant's identity; the QR is one sale.

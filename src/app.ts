@@ -9,7 +9,6 @@ import { authController } from './modules/auth/auth.controller';
 import { billingController } from './modules/billing/billing.controller';
 import { checkoutController } from './modules/checkout/checkout.controller';
 import { keysController } from './modules/keys/keys.controller';
-import { khqrController } from './modules/khqr/khqr.controller';
 import { paymentsController } from './modules/payments/payments.controller';
 import { reportsController } from './modules/reports/reports.controller';
 import { storesController } from './modules/stores/stores.controller';
@@ -28,7 +27,6 @@ export function buildApp(c: Container): Express {
 
   app.use('/auth', authController(c.auth, c.sessions));
   app.use('/pay', checkoutController(c.checkout)); // public hosted checkout
-  app.use('/v1/khqr', khqrController(c.khqr)); // public renderer
   app.use('/v1/billing', billingController(c.billing)); // plans are public
   app.use('/v1/me', accountsController(c.accounts, sessionOnly));
   app.use('/v1/stores', storesController(c.stores, auth));

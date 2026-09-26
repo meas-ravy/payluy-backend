@@ -20,7 +20,7 @@ Replaces a production-readiness log. Tick an item only when its test passes.
 ## P1 — credible fintech
 
 - [ ] Rate limits (`@nestjs/throttler`, Redis storage): per key for payment create/API, per IP for
-      `/pay/*`, `/auth/*`, `/v1/khqr/*`. `429` body + `Retry-After`.
+      `/pay/*`, `/auth/*`. `429` body + `Retry-After`.
 - [ ] CORS allowlist with credentials; never `*`.
 - [ ] Audit log on every privileged mutation (keys, webhooks, stores, link changes, suspension, reissue,
       reverse). A test enumerates mutating routes and fails if one is unaudited.

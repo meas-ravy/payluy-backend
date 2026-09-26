@@ -146,6 +146,10 @@ customers notice.
   Our own floors apply: `amount_too_low` below 1 cent, plus per-link
   `min_amount_cents`/`max_amount_cents`
 - USD on QR confirmed? **Yes** — tag 53 = `840`, `"currency":"USD"`
+- Link currency before any mint: **yes, on the link page.** It inlines a settings object,
+  `transaction_summary.order_details`, with `currency:"USD"` (also `status:"OPEN"`,
+  `max_amount_per_trxn:100000`); exactly one `currency:"…"` on the page (2026-09-26, a USD link).
+  A KHR link is **assumed** to read `currency:"KHR"` there — not yet seen. Attach rejects non-USD.
 - QR expiry behaviour on the rail: **the code lives 180 s; the checkout does
   not.** ABA returned `expire_in_sec: 180` and our `expires_at` mirrors it
   (created + 179.4 s). But on the second live payment the customer paid **9.5

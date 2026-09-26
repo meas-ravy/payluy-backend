@@ -2,6 +2,7 @@ import type { accounts, payments, stores } from '../../generated/prisma/client';
 import { KhqrService } from '../khqr/khqr.service';
 import type { Db } from '../../lib/prisma';
 import { gone, notFound } from '../../lib/errors';
+import { formatCents } from '../../lib/money';
 
 export type CheckoutPayment = payments & { store: stores & { account: accounts } };
 
@@ -27,12 +28,15 @@ export function createCheckoutService(
     return (p.status === 'pending' || p.status === 'scanned') && p.expires_at > new Date();
   }
 
-  /** `410` once the code is dead: expired, superseded, paid… (docs/api.md). One sale can't be paid twice. */
+  /**
+   * The KHQR card (store name, amount, QR). `410` once the code is dead: expired, superseded, paid…
+   * (docs/api.md). One sale can't be paid twice.
+   */
   async function qrSvg(publicId: string): Promise<string> {
     const p = await find(publicId);
     if (!p) throw notFound('payment_not_found');
     if (!isQrLive(p)) throw gone('qr_expired');
-    return khqr.renderSvg(p.qr_string, 'H');
+    return khqr.renderCardSvg(p.qr_string, { name: p.store.name, amount: formatCents(p.amount_cents), currency: p.currency });
   }
 
   /** What the page polls. Deliberately small. */

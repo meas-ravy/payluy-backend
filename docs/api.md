@@ -18,8 +18,7 @@ and an API key is not accepted there; those are marked below.
 | POST | `/v1/payments/:id/reissue` | Replace a dead code (expired/failed/superseded) |
 | POST | `/v1/payments/:id/reverse` | Record a refund of a settled payment |
 | GET | `/pay/:id` | **Public** hosted checkout page (no auth) |
-| GET | `/pay/:id/qr.svg` | **Public** QR image; `410` once the code is dead |
-| GET | `/v1/khqr/render.svg` | KHQR SVG renderer (no auth), `ecc`/`scale` params |
+| GET | `/pay/:id/qr.svg` | **Public** KHQR card image (store name, amount, QR); `410` once the code is dead |
 
 Stores, API keys, webhook endpoints, reports, billing, account and auth are specified in the
 sections after “Rate limits” below. The platform-admin routes
@@ -99,8 +98,7 @@ payment fetched by id has to be turned into a link as `/pay/{id}` on your own ch
 | created_at / expires_at | string | see the note on expiry below |
 
 **Expiry is the rail's, not ours.** For an ABA-hosted checkout ABA returns
-`expire_in_sec` (180 s observed) and we mirror it, so the 5-minute
-`checkout_ttl_seconds` applies only to codes we build ourselves. Once the window
+`expire_in_sec` (180 s observed) and we mirror it; there is no expiry setting of our own. Once the window
 closes the QR image stops being served — `GET /pay/:id/qr.svg` answers `410` — and
 `payment.expired` fires. (`GET /pay/:id` still renders; it is the JSON status and the
 QR image that carry the dead state, and `GET /v1/payments/:id` returns `200` with
@@ -235,33 +233,50 @@ Delivery: any 2xx = ack; else retry with exponential backoff up to 8 times. Dash
 
 ## Errors
 
-Every failure uses a single `detail` field, not a `{ "error", "message" }` pair — kept
-stable so POS integrations never have to special-case the shape. The one exception is
-`429`, which carries `limit`, `window_seconds` and `retry_after` next to `detail` (see “Rate limits”).
+Every failure has the same two fields. The HTTP status is the response status, not a body field.
+
+- `error`: a snake_case **code**. This is the contract: branch on it. It never changes.
+- `message`: an English **sentence** for people and logs. It may be reworded at any time, so never
+  branch on it. A code with a reason (`payway_hosted_error: mint_timeout` in the table below) returns
+  the bare code in `error` and appends the reason to `message`.
 
 ```json
-{ "detail": "amount_too_low" }
+{ "error": "amount_too_low", "message": "The amount is below the store's payment link minimum." }
 ```
 
-Schema validation failures (`422`) nest one entry per bad field:
+```json
+{ "error": "payway_hosted_error", "message": "ABA could not create the QR code. (mint_timeout)" }
+```
+
+Schema validation failures (`422 validation_error`) add `detail`, one entry per bad field. Each
+entry's `location` is where the field is (`body`/`query` + path), `message` is a code (the schema's
+own, such as `invalid_amount`, or a generic one: `invalid_type`, `too_small`, `too_big`,
+`invalid_format`, `invalid_value`, `unknown_field`), and `input` is the value sent:
 
 ```json
 {
+  "error": "validation_error",
+  "message": "The request has invalid fields. See detail.",
   "detail": [
-    { "loc": ["body", "amount"], "msg": "invalid_amount", "input": 0.001 }
+    { "location": ["body", "amount"], "message": "invalid_amount", "input": 0.001 }
   ]
 }
 ```
 
-NestJS implementation: a global `ExceptionFilter` maps `HttpException` to `{ detail }`
-(throw `new BadRequestException('amount_too_low')` → `{ "detail": "amount_too_low" }`), and the
-global `ValidationPipe` uses an `exceptionFactory` that returns `422` with the list above.
-Without the filter Nest answers `{ statusCode, message, error }`, which breaks this contract.
+`429` also carries `limit`, `window_seconds` and `retry_after` (see “Rate limits”).
 
-Codes returned in `detail`:
+Implementation: routes throw `ApiError` (`src/lib/errors.ts`, which also holds the code → sentence
+map); the global handler (`src/middleware/error.ts`) writes the body. Anything else is a `500
+internal_error`.
+
+Codes returned in `error`:
 
 | Code | Status | Meaning |
 | --- | --- | --- |
+| `validation_error` | 422 | Body or query failed the schema; see `detail` |
+| `not_found` | 404 | Unknown URL |
+| `internal_error` | 500 | Our bug; details only in our logs |
+| `qr_expired` | 410 | `GET /pay/:id/qr.svg` for a code that can no longer be paid |
 | `unauthorized` | 401 | Missing or invalid key |
 | `invalid_session` | 401 | Cookie-only endpoint called without a valid session |
 | `account_suspended` | 403 | The account is suspended |
@@ -271,15 +286,14 @@ Codes returned in `detail`:
 | `invalid_amount` / `amount_too_low` / `amount_too_high` | 422 (or 400 from the service) | Amount rejected |
 | `payment_link_disabled` / `store_disabled` | 400 | Store has no link, or is disabled |
 | `offline_qr_requires_a_confirmation_source` | 400 | `hosted_qr=false` where nothing can confirm it |
-| `payload_too_long` | 400 | `GET /v1/khqr/render.svg` only: the payload does not fit a QR code. Not a request-body limit. |
-| `invalid_payload` | 400 | `GET /v1/khqr/render.svg`: the payload could not be encoded |
 | `payment_not_found` / `store_not_found` / `merchant_not_found` | 404 | Not found in this account |
 | `key_not_found` / `webhook_not_found` / `plan_not_found` / `invoice_not_found` | 404 | Not found in this account |
 | `store_required_or_merchant_required` | 400 | No target given and the account has 0 or 2+ active stores |
 | `merchant_store_disabled` | 400 | Store addressed by `merchant=` is not `active` |
 | `store_limit_reached` / `key_limit_reached` / `webhook_limit_reached` | 400 | Plan limit hit; upgrade or remove one |
 | `external_id_taken` | 409 | Another store on this account already uses that `external_id` |
-| `invalid_payment_link` | 400 | Link is not a `link.payway.com.kh` URL, or its page has no `aba_data` |
+| `invalid_payment_link` | 400 | Link is not a `link.payway.com.kh` URL, or its page has no `aba_data` (or no readable currency) |
+| `payment_link_currency_not_supported` | 400 | The link is not USD; `message` names its currency: "Only USD payment links are supported (this link is KHR)." |
 | `payway_hosted_error: <reason>` | 502 | ABA refused or returned an unusable mint response |
 | `payment_already_paid` / `payment_reversed` / `payment_not_expired` | 409 | Reissue preconditions |
 | `plan_not_available` / `invoice_already_paid` | 400 | Billing preconditions |
@@ -290,7 +304,7 @@ Codes returned in `detail`:
 | `email_already_taken` | 400 | Profile email in use |
 | `terms_version_superseded` | 409 | Accepted a terms version we no longer publish |
 | `bakong_not_configured` | 503 | Bakong ledger endpoints without platform credentials |
-| `rate_limited: <rule>` | 429 | Rate limit hit; the value is prefixed, e.g. `rate_limited: auth` |
+| `rate_limited: <rule>` | 429 | Rate limit hit; `error` is `rate_limited`, the rule goes in `message` |
 
 ## Quota
 
@@ -311,7 +325,7 @@ returns `429` with a JSON body and three headers — `Retry-After`, `X-RateLimit
 `X-RateLimit-Remaining` — all of which are CORS-exposed so browser clients can read them:
 
 ```json
-{ "detail": "rate_limited: auth", "limit": 20, "window_seconds": 60, "retry_after": 12 }
+{ "error": "rate_limited", "message": "Too many requests. (auth)", "limit": 20, "window_seconds": 60, "retry_after": 12 }
 ```
 
 Rules, by route (each limit is configurable per minute via env; implemented with
@@ -321,7 +335,6 @@ Rules, by route (each limit is configurable per minute via env; implemented with
 | --- | --- | --- |
 | `payment_create` | API key | `POST /v1/payments`, `POST /v1/payments/{id}/reissue` — the calls that mint an ABA QR |
 | `api` | API key | everything else under `/` |
-| `khqr` | IP | `/v1/khqr/*` (unauthenticated by design) |
 | `auth` | IP | `/auth/*` |
 | `checkout` | IP | `/pay/*` |
 
@@ -404,18 +417,19 @@ A store is one merchant. `id` is the public id: a UUID v4.
 Branding fields without `whitelabel_enabled` → `403 whitelabel_not_enabled` (sending `null` is allowed).
 
 **Link validation.** On attach the server fetches `raw_link` and requires `aba_data` and
-`request_time` in the page; otherwise `400 invalid_payment_link`. Only then is `verified_at`
-set and the store made `active`.
+`request_time` in the page; otherwise `400 invalid_payment_link`. The link's currency is read from
+the same page and must be `USD` (v1 is USD only); otherwise `400 payment_link_currency_not_supported`.
+Only then is `verified_at` set and the store made `active`.
 
 ### Routes
 
 | Method | Path | Body | Success | Errors |
 | --- | --- | --- | --- | --- |
-| POST | `/v1/stores` | create fields (+ optional `link`) | `201` store | `400 store_limit_reached`, `409 external_id_taken`, `400 invalid_payment_link`, `403 whitelabel_not_enabled`, `422` |
+| POST | `/v1/stores` | create fields (+ optional `link`) | `201` store | `400 store_limit_reached`, `409 external_id_taken`, `400 invalid_payment_link`, `400 payment_link_currency_not_supported`, `403 whitelabel_not_enabled`, `422` |
 | GET | `/v1/stores` | — | `200 {"data": [store]}` | — |
 | GET | `/v1/stores/:id` | — | `200` store | `404 store_not_found` |
 | PATCH | `/v1/stores/:id` | any subset of fields (+ optional `link`) | `200` store | as POST |
-| PUT | `/v1/stores/:id/link` | `{raw_link, merchant_account_id, merchant_name?}` | `200` store (promoted to `active`) | `400 invalid_payment_link` |
+| PUT | `/v1/stores/:id/link` | `{raw_link, merchant_account_id, merchant_name?}` | `200` store (promoted to `active`) | `400 invalid_payment_link`, `400 payment_link_currency_not_supported` |
 | POST | `/v1/stores/:id/disable` | — | `200` store (`disabled`; stops new payments, keeps history) | `404` |
 | POST | `/v1/stores/:id/enable` | — | `200` store (`active` if it has a link, else `draft`) | `404` |
 | POST | `/v1/stores/:id/telegram/test` | — | `200 {"ok": true, "chat_id": "…"}` | `400 telegram_chat_id_not_set`, `503 telegram_not_configured`, `502 telegram_send_failed: …` |

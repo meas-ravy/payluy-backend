@@ -52,7 +52,7 @@ Each one is `<feature>.service.ts` (logic) + `<feature>.controller.ts` (HTTP), w
 | `detection/` | 30 s sweep worker (Postgres, SKIP LOCKED) that polls ABA and calls `markPaid` |
 | `webhooks/` | Endpoint CRUD, outbox writer, sender processor, HMAC signing |
 | `checkout/` | Public `/pay/:id`, `/pay/:id/qr.svg`, `/pay/:id/status` |
-| `khqr/` | Offline KHQR TLV encoder + CRC-16, SVG renderer |
+| `khqr/` | KHQR card SVG for `/pay/:id/qr.svg` (service only, no routes) |
 | `billing/` | Plans, subscriptions, usage ledger |
 | `admin/` | Platform-operator routes (`/v1/admin/*`) |
 | `observability/` | Structured logs with trace id, `prom-client` `/metrics`, Telegram alerts |

@@ -169,7 +169,7 @@ strings in responses; `expires_at` mirrors ABA's own code lifetime (180 s observ
 
 ### Errors that matter to a provider
 
-| Status | `detail` | Cause |
+| Status | `error` | Cause |
 | --- | --- | --- |
 | 404 | `merchant_not_found` | No store on your account with that `external_id`. |
 | 400 | `merchant_store_disabled` | The store exists but is not `active` (draft or disabled). |
@@ -179,17 +179,21 @@ strings in responses; `expires_at` mirrors ABA's own code lifetime (180 s observ
 | 402 | `quota_exceeded` | Monthly paid-payment quota for your plan is used up. |
 | 404 | `store_not_found` | Unknown `store` public id. |
 
-Errors use the `{"detail": "..."}` shape described in `api.md`.
+Errors look like `{"error": "merchant_not_found", "message": "Merchant not found."}` (see
+`api.md` § Errors). Branch on `error`; `message` is for people and may be reworded.
 
 Quota is pooled across **all** your stores and counts only `paid` payments, per calendar month:
 Free 3,000, Starter 15,000, Pro 1,000,000.
 
 ## 4. Present to the payer
 
-Two options:
+Three options:
 
 - **`qr_string`** — the raw EMVCo/KHQR payload. Render it with any QR library, at ECC level H so
-  the centre medallion survives. You keep the payer in your own UI.
+  the centre medallion survives. You keep the payer in your own UI, and you stop showing the code
+  once the payment is no longer `pending`/`scanned` (webhooks or `GET /v1/payments/{id}`).
+- **`GET /pay/{id}/qr.svg`** — our ready-made KHQR card (store name, amount, QR) as an SVG. Public,
+  so it works straight in an `<img>`; not cached; answers `410` once the code is dead.
 - **`checkout_url`** — our hosted page with a live status countdown. It polls our backend, so your
   API key is never exposed to the browser. On a terminal outcome it redirects to the store's
   `redirect_success_url` / `redirect_failure_url` with `?status=<paid|expired|failed>&payment_id=…&reference_id=…` (the raw payment status).

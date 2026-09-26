@@ -9,7 +9,7 @@ import type { StoreWithLink } from './stores.view';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors';
 
 type Tx = Prisma.TransactionClient;
-type VerifiedLink = Pick<Prisma.payment_linksUncheckedCreateInput, 'raw_link' | 'merchant_account_id' | 'merchant_name' | 'verified_at'>;
+type VerifiedLink = Pick<Prisma.payment_linksUncheckedCreateInput, 'raw_link' | 'merchant_account_id' | 'merchant_name' | 'currency' | 'verified_at'>;
 
 const withLink = { link: true } as const;
 const BRANDING = ['brand_color', 'logo_image_url', 'whitelabel_css'] as const;
@@ -172,15 +172,20 @@ export function createStoresService(
     if (count >= plan.max_stores) throw badRequest('store_limit_reached');
   }
 
-  /** Hard rule 10: a link is only stored as verified after the gateway found aba_data on its page. */
+  /**
+   * Hard rule 10: a link is only stored as verified after the gateway found aba_data on its page.
+   * USD only (AGENTS.md): a KHR link would mint "1.50" as 1.50 riel. A page whose currency can't be
+   * read is not verified either.
+   */
   async function verifyLink(link: LinkDto): Promise<VerifiedLink> {
-    if (!PAYWAY_LINK.test(link.raw_link) || !(await payway.verifyLink(link.raw_link))) {
-      throw badRequest('invalid_payment_link');
-    }
+    const info = PAYWAY_LINK.test(link.raw_link) ? await payway.verifyLink(link.raw_link) : null;
+    if (!info?.currency) throw badRequest('invalid_payment_link');
+    if (info.currency !== 'USD') throw badRequest(`payment_link_currency_not_supported: ${info.currency}`);
     return {
       raw_link: link.raw_link,
       merchant_account_id: link.merchant_account_id,
       merchant_name: link.merchant_name ?? null,
+      currency: info.currency,
       verified_at: new Date(),
     };
   }

@@ -31,14 +31,12 @@ export function renderCheckoutPage(p: CheckoutPayment, opts: { productName: stri
 <meta name="robots" content="noindex">
 <title>Pay ${esc(store.name)}</title>
 <style>
- /**
   *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f4f4f5;color:#18181b}
   .card{max-width:380px;margin:24px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)}
   header{background:${brand};color:#fff;padding:14px 18px;display:flex;align-items:center;gap:8px;font-weight:600}
   .logo{height:22px;width:auto;border-radius:4px}
   main{padding:20px;text-align:center}
-  .amount{font-size:28px;font-weight:700;margin:4px 0 16px}
-  .qr{width:240px;height:240px;margin:0 auto;display:block}
+  .qr{width:100%;max-width:300px;height:auto;margin:0 auto;display:block}
   .qr.dead{opacity:.15}
   .timer{font-variant-numeric:tabular-nums;color:#71717a;margin-top:12px}
   .status{margin-top:12px;font-weight:600}
@@ -51,8 +49,7 @@ ${css ? `<style>${css}</style>` : ''}
 <div class="card">
   <header>${logo}<span>${esc(store.name)}</span></header>
   <main>
-    <div class="amount">${amount}</div>
-    <img id="qr" class="qr${opts.qrLive ? '' : ' dead'}" src="/pay/${id}/qr.svg" alt="KHQR code" ${opts.qrLive ? '' : 'hidden'}>
+    <img id="qr" class="qr${opts.qrLive ? '' : ' dead'}" src="/pay/${id}/qr.svg" alt="KHQR code, ${amount}" ${opts.qrLive ? '' : 'hidden'}>
     <div id="timer" class="timer"></div>
     <div id="status" class="status">Scan with your banking app</div>
   </main>

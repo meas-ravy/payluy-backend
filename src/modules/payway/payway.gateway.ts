@@ -23,14 +23,17 @@ export type HostedStatus = {
   action: string; // ABA's raw action, kept in attempt_history
 };
 
+/** What a link's page says about it. `currency` is the link's own ("USD", "KHR"), null if not found. */
+export type LinkInfo = { currency: string | null };
+
 /**
  * Every ABA call goes through this class (AGENTS.md hard rule 2). The ABA endpoints are unofficial
  * (docs/architecture.md §4), so implementations must stay swappable.
  * Abstract class, not an interface: Nest uses it as the injection token.
  */
 export abstract class PaywayGateway {
-  /** Fetch the link's page; true only if it contains `aba_data` and `request_time` (hard rule 10). */
-  abstract verifyLink(rawLink: string): Promise<boolean>;
+  /** Fetch the link's page; null unless it contains `aba_data` and `request_time` (hard rule 10). */
+  abstract verifyLink(rawLink: string): Promise<LinkInfo | null>;
 
   /**
    * Mint a payable KHQR for `amount` (decimal string, "12.50") from the store's link.

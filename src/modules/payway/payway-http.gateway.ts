@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { HostedCheckout, HostedSession, HostedStatus, PAYWAY_LINK, PaywayGateway } from './payway.gateway';
+import { HostedCheckout, HostedSession, HostedStatus, LinkInfo, PAYWAY_LINK, PaywayGateway } from './payway.gateway';
 
 // ⚠️ Unofficial API, reverse-engineered from ABA's public PayWay page (docs/architecture.md §4).
 // No contract, no secret in the hash; a page change breaks it. Everything ABA-specific stays in this file.
@@ -10,6 +10,8 @@ const TIMEOUT_MS = 10_000;
 
 const ABA_DATA = /aba_data\s*[=:]\s*"((?:[^"\\]|\\.)*)"/;
 const REQUEST_TIME = /request_time\s*[=:]\s*"?(\d{10,20})"?/;
+// the link's own settings object: transaction_summary.order_details.currency ("USD" seen; "KHR" assumed)
+const CURRENCY = /currency\s*:\s*"([A-Z]{3})"/;
 
 const sha512 = (s: string) => createHash('sha512').update(s).digest('hex');
 
@@ -21,13 +23,13 @@ type Json = Record<string, unknown>;
  */
 export class PaywayHttpGateway extends PaywayGateway {
   /** Hard rule 10: verified only if the page really carries aba_data + request_time. */
-  async verifyLink(rawLink: string): Promise<boolean> {
-    if (!PAYWAY_LINK.test(rawLink)) return false;
+  async verifyLink(rawLink: string): Promise<LinkInfo | null> {
+    if (!PAYWAY_LINK.test(rawLink)) return null;
     try {
-      await this.readLinkPage(rawLink);
-      return true;
+      const { currency } = await this.readLinkPage(rawLink);
+      return { currency };
     } catch {
-      return false;
+      return null;
     }
   }
 
@@ -89,7 +91,7 @@ export class PaywayHttpGateway extends PaywayGateway {
     const raw = ABA_DATA.exec(html)?.[1];
     const requestTime = REQUEST_TIME.exec(html)?.[1];
     if (!raw || !requestTime) throw new Error('aba_data_not_found');
-    return { abaData: unescapeJs(raw), requestTime };
+    return { abaData: unescapeJs(raw), requestTime, currency: CURRENCY.exec(html)?.[1] ?? null };
   }
 
   private async postJson(url: string, body: Json, headers: Record<string, string>, what: 'mint' | 'status'): Promise<Json> {
