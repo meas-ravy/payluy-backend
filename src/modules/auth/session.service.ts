@@ -1,14 +1,18 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import type { CookieOptions, Request } from 'express';
+import type { Request } from 'express';
 import type { accounts } from '../../generated/prisma/client';
-import { isCrossSite, isLocalhost } from '../../lib/env';
 import type { Db } from '../../lib/prisma';
 
 export const SESSION_COOKIE = 'session';
-const TTL_SEC = 7 * 24 * 3600; // ponytail: stateless 7-day JWT; logout only clears the cookie, add a revocation table if needed
+/** ponytail: stateless 30-day JWT; sign-out only drops it on the dashboard side, add a revocation table if needed. */
+export const SESSION_TTL_SEC = 30 * 24 * 3600;
 const HEADER = b64({ alg: 'HS256', typ: 'JWT' });
 
-/** Dashboard session: a signed JWT (HS256, `SESSION_SECRET`) in an HttpOnly cookie (docs/api.md § Auth). */
+/**
+ * Dashboard session: a signed JWT (HS256, `SESSION_SECRET`), issued to the dashboard's Next.js server
+ * at sign-in (POST /internal/auth/google) and sent back by it as the `session` cookie on every call
+ * it forwards (docs/api.md § Auth). The browser never sees it.
+ */
 export type SessionService = ReturnType<typeof createSessionService>;
 
 export function createSessionService(prisma: Db) {
@@ -20,7 +24,7 @@ export function createSessionService(prisma: Db) {
 
   function sign(accountId: number): string {
     const now = Math.floor(Date.now() / 1000);
-    const body = `${HEADER}.${b64({ sub: String(accountId), iat: now, exp: now + TTL_SEC })}`;
+    const body = `${HEADER}.${b64({ sub: String(accountId), iat: now, exp: now + SESSION_TTL_SEC })}`;
     return `${body}.${hmac(body)}`;
   }
 
@@ -48,23 +52,11 @@ export function createSessionService(prisma: Db) {
     return id === null ? null : prisma.accounts.findUnique({ where: { id } });
   }
 
-  function cookieOptions(maxAgeMs = TTL_SEC * 1000): CookieOptions {
-    // cross-site (dashboard on another host): `None` + `Secure`, or the browser never sends it back
-    const cross = isCrossSite();
-    return {
-      httpOnly: true,
-      sameSite: cross ? 'none' : 'lax',
-      secure: cross || !isLocalhost(),
-      path: '/',
-      maxAge: maxAgeMs,
-    };
-  }
-
   function hmac(data: string) {
     return createHmac('sha256', secret).update(data).digest('base64url');
   }
 
-  return { sign, verify, account, cookieOptions };
+  return { sign, verify, account };
 }
 
 export function readCookie(req: Request, name: string): string | undefined {

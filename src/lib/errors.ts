@@ -5,7 +5,6 @@ const MESSAGES: Record<string, string> = {
   amount_too_low: "The amount is below the store's payment link minimum.",
   email_already_taken: 'This email is already used by another account.',
   invalid_date: 'The date must be YYYY-MM-DD.',
-  invalid_oauth_state: 'The sign-in request expired or was tampered with. Sign in again.',
   invalid_payment_link: 'The payment link is not a valid ABA PayWay link.',
   key_limit_reached: 'Your plan allows no more API keys.',
   merchant_store_disabled: "This merchant's store is disabled.",
@@ -44,8 +43,6 @@ const MESSAGES: Record<string, string> = {
   invalid_amount: 'The amount must be a number with at most 2 decimals.',
   internal_error: 'Something went wrong on our side.',
   payway_hosted_error: 'ABA could not create the QR code.',
-  google_oauth_not_configured: 'Google sign-in is not configured.',
-  google_unavailable: 'Google sign-in is unavailable. Try again.',
 };
 
 /**
