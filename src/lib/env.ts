@@ -6,7 +6,7 @@ const trimSlash = (s: string) => s.replace(/\/+$/, '');
 
 /** Everything the app reads from the environment, in one place (see .env.example). */
 export const env = {
-  port: 3001, // ponytail: fixed; Vercel ignores it (api/index.ts). Read process.env.PORT again if hosting on Railway/Render/Docker
+  port: Number(process.env.PORT) || 3001, // the host picks it (DigitalOcean App Platform sets PORT); 3001 locally
   /**
    * This backend's public URL: checkout_url, the Google redirect URI, the cookie's Secure flag.
    * Unset: on Vercel, the project's production domain (e.g. https://payluy-backend.vercel.app); locally, localhost.

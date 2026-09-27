@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/src/server.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "tsc -w -p tsconfig.json --preserveWatchOutput & node --watch dist/src/server",
     "build": "tsc -p tsconfig.json",
