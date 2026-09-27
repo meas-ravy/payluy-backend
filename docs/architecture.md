@@ -44,7 +44,7 @@ Each one is `<feature>.service.ts` (logic) + `<feature>.controller.ts` (HTTP), w
 
 | Folder | Responsibility |
 | --- | --- |
-| `auth/` | API-key + session middleware (`Bearer ck_live_…` or the session cookie), Google OAuth (hand-rolled, no passport) |
+| `auth/` | API-key + session middleware (`Bearer ck_live_…` or the session cookie the dashboard's Next.js server forwards); `POST /internal/auth/google` finds/links/creates the account for the dashboard's NextAuth sign-in (full BFF, `api.md` § Auth) |
 | `accounts/` | Account profile, plan, terms acceptance, suspension |
 | `stores/` | `POST /v1/stores`, link attach/replace, enable/disable |
 | `payments/` | Create / read / list / reissue / reverse payments, quota check |

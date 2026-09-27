@@ -5,7 +5,7 @@ Base URL `https://pay.example.com/v1` — the API is served from the same origin
 so there is no separate `api.` host. JSON in/out. Auth: `Authorization: Bearer ck_live_…`.
 
 Only `ck_live_` keys are issued: `POST /v1/keys` always mints live mode, and there is no
-`ck_test_` issuance path. A few endpoints are session-cookie only (`/v1/me`, `/v1/billing/*`)
+`ck_test_` issuance path. A few endpoints are session-cookie only (`/v1/account`, `/v1/billing/*`)
 and an API key is not accepted there; those are marked below.
 
 ## Endpoints
@@ -335,7 +335,7 @@ Rules, by route (each limit is configurable per minute via env; implemented with
 | --- | --- | --- |
 | `payment_create` | API key | `POST /v1/payments`, `POST /v1/payments/{id}/reissue` — the calls that mint an ABA QR |
 | `api` | API key | everything else under `/` |
-| `auth` | IP | `/auth/*` |
+| `auth` | IP | `/internal/auth/*` (dashboard sign-in) |
 | `checkout` | IP | `/pay/*` |
 
 Counters are stored in Redis (`@nestjs/throttler` Redis storage), so the limit holds across
@@ -520,9 +520,9 @@ pricing page.
 
 | Method | Path | Body | Success | Errors |
 | --- | --- | --- | --- | --- |
-| GET | `/v1/me` | — | `200` profile | `401 invalid_session` |
-| PATCH | `/v1/me` | `{"name"?: "≤120", "email"?: "≤255"}` | `200` profile | `400 email_already_taken` |
-| POST | `/v1/me/terms` | `{"version": "2026-09-01"}` | `200` profile; same version again is a no-op | `409 terms_version_superseded` |
+| GET | `/v1/account` | — | `200` profile | `401 invalid_session` |
+| PATCH | `/v1/account` | `{"name"?: "≤120", "email"?: "≤255"}` | `200` profile | `400 email_already_taken` |
+| POST | `/v1/account/terms` | `{"version": "2026-09-01"}` | `200` profile; same version again is a no-op | `409 terms_version_superseded` |
 
 Profile: `id, email, name, status, whitelabel_enabled, is_platform_admin, created_at,
 updated_at, terms_accepted_at, terms_accepted_version, terms_required_version, auth_method`.
@@ -531,8 +531,22 @@ updated_at, terms_accepted_at, terms_accepted_version, terms_required_version, a
 
 | Method | Path | Behaviour |
 | --- | --- | --- |
-| GET | `/auth/google/login` | `302` to Google consent (`redirect_uri = {PUBLIC_ORIGIN}/auth/google/callback`) |
-| GET | `/auth/google/callback` | creates the account on first sign-in, sets the session cookie (`HttpOnly; SameSite=Lax; Secure` off localhost), `302` to `/dashboard` |
-| POST | `/auth/logout` | clears the cookie, `204` |
+The dashboard uses a **full Backend-for-Frontend (BFF)**: the browser only talks to the dashboard's
+own site; its Next.js server owns the browser session and forwards dashboard calls to this API.
 
-The session cookie is a signed JWT (`SESSION_SECRET`). Rate-limited by the `auth` rule.
+- **Sign-in** runs in the dashboard with NextAuth (v4, Google provider). Its session is NextAuth's
+  encrypted cookie on the dashboard's domain (`NEXTAUTH_SECRET`); Google's redirect URI is
+  `{dashboard}/api/auth/callback/google`.
+- On sign-in, the dashboard's server calls this API once:
+
+| Method | Path | Body | Behaviour | Errors |
+| --- | --- | --- | --- | --- |
+| POST | `/internal/auth/google` | `{sub, email, name?, email_verified: true}` (Google's verified identity) | Finds the account by `sub`, links an existing account by email (unless that email is tied to another Google `sub`), or creates it; `200 {account_id, session_token, expires_in}` | `401 unauthorized` (bad internal secret, or email owned by another Google identity), `403 account_suspended`, `422` |
+
+  Auth: `Authorization: Bearer <INTERNAL_API_SECRET>`, a secret shared only with the dashboard's
+  server. Not for POS integrations.
+- `session_token` is a signed JWT (`SESSION_SECRET`, backend only), valid 30 days. The dashboard keeps it
+  inside its encrypted NextAuth cookie (never readable by the browser) and sends it as the
+  `session` cookie on every call it forwards to `/v1/*`. That is the "dashboard session cookie"
+  the Management API and the *session only* routes accept.
+- Sign-out is NextAuth's; the backend keeps no session state (a token lives until it expires).

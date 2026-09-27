@@ -1,7 +1,7 @@
 import express, { type Express } from 'express';
 import { env } from './lib/env';
 import type { Container } from './container';
-import { accountAuth, sessionAuth } from './middleware/auth';
+import { accountAuth, internalAuth, sessionAuth } from './middleware/auth';
 import { cors } from './middleware/cors';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import { accountsController } from './modules/accounts/accounts.controller';
@@ -21,14 +21,15 @@ export function buildApp(c: Container): Express {
   app.use(express.json({ limit: '100kb' }));
   app.use(cors(env.frontendUrl));
 
-  // Bearer key or session cookie; /v1/me is cookie-only (docs/api.md § Management API)
+  // Bearer key or session cookie; /v1/account is cookie-only (docs/api.md § Management API).
+  // The session cookie comes from the dashboard's Next.js server, never from a browser (docs/api.md § Auth).
   const auth = accountAuth(c.db, c.sessions);
   const sessionOnly = sessionAuth(c.sessions);
 
-  app.use('/auth', authController(c.auth, c.sessions));
+  app.use('/internal/auth', authController(c.auth, c.sessions, internalAuth())); // dashboard sign-in
   app.use('/pay', checkoutController(c.checkout)); // public hosted checkout
   app.use('/v1/billing', billingController(c.billing)); // plans are public
-  app.use('/v1/me', accountsController(c.accounts, sessionOnly));
+  app.use('/v1/account', accountsController(c.accounts, sessionOnly));
   app.use('/v1/stores', storesController(c.stores, auth));
   app.use('/v1/payments', paymentsController(c.payments, auth));
   app.use('/v1/keys', keysController(c.keys, auth));

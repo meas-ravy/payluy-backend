@@ -1,5 +1,7 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { accounts } from '../generated/prisma/client';
+import { env } from '../lib/env';
 import { forbidden, unauthorized } from '../lib/errors';
 import { sha256 } from '../lib/ids';
 import type { Db } from '../lib/prisma';
@@ -31,7 +33,7 @@ export function accountAuth(prisma: Db, sessions: SessionService): RequestHandle
   };
 }
 
-/** Session-only routes (`/v1/me`, `/v1/billing/*`): an API key is not accepted there. */
+/** Session-only routes (`/v1/account`, `/v1/billing/*`): an API key is not accepted there. */
 export function sessionAuth(sessions: SessionService): RequestHandler {
   return async (req: AuthedRequest, _res: Response, next: NextFunction) => {
     try {
@@ -40,6 +42,23 @@ export function sessionAuth(sessions: SessionService): RequestHandler {
     } catch (e) {
       next(e);
     }
+  };
+}
+
+/**
+ * `/internal/*`: only the dashboard's Next.js server, with `Authorization: Bearer <INTERNAL_API_SECRET>`.
+ * Refuses to boot on a missing, short or placeholder secret (same rule as SESSION_SECRET).
+ */
+export function internalAuth(): RequestHandler {
+  const secret = env.internalApiSecret;
+  if (secret.length < 32 || /change|example|placeholder|secret/i.test(secret)) {
+    throw new Error('INTERNAL_API_SECRET must be a random string of 32+ chars (e.g. openssl rand -base64 48)');
+  }
+  const expected = Buffer.from(`Bearer ${secret}`);
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const given = Buffer.from(req.headers.authorization ?? '');
+    const ok = given.length === expected.length && timingSafeEqual(given, expected);
+    next(ok ? undefined : unauthorized('unauthorized'));
   };
 }
 
